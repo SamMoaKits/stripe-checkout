@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import getRawBody from 'raw-body';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -8,25 +9,16 @@ export const config = {
   },
 };
 
-function readBufferFromRequest(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', chunk => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
-  });
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
   }
 
+  let event;
   const sig = req.headers['stripe-signature'];
 
-  let event;
   try {
-    const rawBody = await readBufferFromRequest(req);
+    const rawBody = await getRawBody(req);
     event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.error('❌ Stripe signature verification failed:', err.message);
