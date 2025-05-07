@@ -2,12 +2,12 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
   // ✅ CORS headers
-  res.setHeader("Access-Control-Allow-Origin", "https://www.moakits.com"); // or "*" for testing
+  res.setHeader("Access-Control-Allow-Origin", "https://www.moakits.com"); // allow only your site
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end(); // respond to CORS preflight
+    return res.status(200).end(); // handle CORS preflight
   }
 
   if (req.method !== 'POST') {
@@ -30,8 +30,8 @@ export default async function handler(req, res) {
       })),
       mode: 'payment',
       metadata: { customerName: name },
-      success_url: 'https://www.moakits.com/thank-you',
-      cancel_url: 'https://www.moakits.com/cancel',
+      success_url: 'https://www.moakits.com/thank',
+      cancel_url: 'https://www.moakits.com',
     });
 
     res.status(200).json({ url: session.url });
@@ -40,6 +40,3 @@ export default async function handler(req, res) {
     res.status(500).json({ error: 'Stripe session failed' });
   }
 }
-
-
-// Triggering redeploy for Vercel
