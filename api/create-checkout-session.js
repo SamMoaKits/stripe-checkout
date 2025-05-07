@@ -1,6 +1,6 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
   }
@@ -30,4 +30,4 @@ module.exports = async (req, res) => {
     console.error('Stripe error:', err);
     res.status(500).json({ error: 'Stripe session failed' });
   }
-};
+}
