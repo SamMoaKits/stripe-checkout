@@ -1,14 +1,13 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
-  // ✅ Allow CORS
-  res.setHeader('Access-Control-Allow-Origin', '*'); // or 'https://www.moakits.com' for production
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // ✅ CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "https://www.moakits.com"); // or "*" for testing
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // ✅ Respond to preflight request
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    return res.status(200).end(); // respond to CORS preflight
   }
 
   if (req.method !== 'POST') {
@@ -41,3 +40,4 @@ export default async function handler(req, res) {
     res.status(500).json({ error: 'Stripe session failed' });
   }
 }
+
