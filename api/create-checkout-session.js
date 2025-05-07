@@ -1,25 +1,15 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
-  // ✅ CORS headers
-  res.setHeader("Access-Control-Allow-Origin", "https://www.moakits.com");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end(); // respond to CORS preflight
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).send('Method Not Allowed');
-  }
+  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
   const { cart, email, name, address1, address2, city, postcode } = req.body;
 
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      customer_email: email,
       line_items: cart.map(item => ({
         price_data: {
           currency: 'gbp',
@@ -29,20 +19,21 @@ export default async function handler(req, res) {
         quantity: 1,
       })),
       mode: 'payment',
+      success_url: 'https://www.moakits.com/thank?success=true',
+      cancel_url: 'https://www.moakits.com/checkout?cancelled=true',
+      customer_email: email,
       metadata: {
         customerName: name,
         address1,
         address2,
         city,
-        postcode
+        postcode,
       },
-      success_url: 'https://www.moakits.com/thank',
-      cancel_url: 'https://www.moakits.com',
     });
 
     res.status(200).json({ url: session.url });
   } catch (err) {
-    console.error('Stripe error:', err);
-    res.status(500).json({ error: 'Stripe session failed' });
+    console.error("❌ Stripe session creation failed:", err);
+    res.status(500).json({ error: err.message });
   }
 }
