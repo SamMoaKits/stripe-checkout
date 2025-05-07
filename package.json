@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "micro": "^10.0.1",
     "stripe": "^18.1.0"
   }
 }
