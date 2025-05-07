@@ -6,7 +6,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: false, // Important to disable default body parsing!
   },
 };
 
@@ -27,7 +27,6 @@ export default async function handler(req, res) {
   const sig = req.headers["stripe-signature"];
 
   let event;
-
   try {
     const rawBody = await buffer(req);
     event = stripe.webhooks.constructEvent(
@@ -44,7 +43,6 @@ export default async function handler(req, res) {
     const session = event.data.object;
     console.log("✅ Stripe payment success for:", session.customer_email);
 
-    // ✅ Send to Google Sheets
     try {
       await fetch("https://script.google.com/macros/s/AKfycbwMuuLg5Wj5vb6-ty7olCY6kWz1oJMeyYldrrwOTBvdFZ1tz6ApRmwtqzYr8OCkkJ8/exec", {
         method: "POST",
@@ -55,12 +53,12 @@ export default async function handler(req, res) {
           name: session.metadata?.customerName || "",
           orderId: session.id,
           total: `£${(session.amount_total / 100).toFixed(2)}`,
-          orderSummary: "Order from Stripe webhook",
+          orderSummary: "Webhook-triggered order",
         }),
       });
       console.log("📦 Sent to Google Sheets");
     } catch (err) {
-      console.error("❌ Failed to send to Sheets:", err);
+      console.error("❌ Failed to send to Google Sheets:", err);
     }
   }
 
