@@ -8,6 +8,7 @@ export const config = {
   },
 };
 
+// Helper to read raw buffer from request (required for Stripe signature validation)
 function readBufferFromRequest(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -23,60 +24,48 @@ export default async function handler(req, res) {
   }
 
   const sig = req.headers['stripe-signature'];
-  let event;
 
+  let event;
   try {
     const rawBody = await readBufferFromRequest(req);
-    event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(
+      rawBody,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
   } catch (err) {
     console.error('❌ Stripe signature verification failed:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  try {
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
+  // Handle successful checkout
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
 
-      const name = session.metadata?.customerName || '';
-      const address1 = session.metadata?.address1 || '';
-      const address2 = session.metadata?.address2 || '';
-      const city = session.metadata?.city || '';
-      const postcode = session.metadata?.postcode || '';
-      const email = session.customer_email || '';
-      const orderId = session.id;
-      const total = `£${(session.amount_total / 100).toFixed(2)}`;
+    const name = session.metadata?.customerName || '';
+    const address1 = session.metadata?.address1 || '';
+    const address2 = session.metadata?.address2 || '';
+    const city = session.metadata?.city || '';
+    const postcode = session.metadata?.postcode || '';
+    const email = session.customer_email || '';
+    const orderId = session.id;
+    const total = `£${(session.amount_total / 100).toFixed(2)}`;
 
-      const payload = {
-        to: email,
-        name,
-        orderId,
-        total,
-        address1,
-        address2,
-        city,
-        postcode,
-        orderSummary: "Stripe webhook processed"
-      };
+    const payload = {
+      to: email,
+      name,
+      orderId,
+      total,
+      address1,
+      address2,
+      city,
+      postcode,
+      orderSummary: "Stripe webhook processed"
+    };
 
-      await fetch("https://script.google.com/macros/s/AKfycbwMuuLg5Wj5vb6-ty7olCY6kWz1oJMeyYldrrwOTBvdFZ1tz6ApRmwtqzYr8OCkkJ8/exec", {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      });
-
-      console.log("✅ Webhook handled for:", email);
-    } else {
-      console.log("ℹ️ Ignoring event type:", event.type);
-    }
-
-    // ✅ Respond to Stripe to stop retries
-    return res.status(200).json({ received: true });
-
-  } catch (err) {
-    console.error("❌ Error during webhook handling:", err);
-    return res.status(500).send('Internal Server Error');
+    // 🔇 Removed Google Sheets call — handled by Wix thank you page instead
+    console.log("✅ Stripe payment success. Payload prepared:", payload);
   }
+
+  res.status(200).json({ received: true });
 }
