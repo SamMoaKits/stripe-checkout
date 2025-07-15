@@ -37,24 +37,25 @@ export default async function handler(req, res) {
 
     for (const item of cart) {
       const isSubscription = item.subscription === true;
-      const recurringInterval = intervalMap[item.interval?.toLowerCase()?.trim()] || null;
-      const intervalCount = intervalCountMap[item.interval?.toLowerCase()?.trim()] || 1;
+      const intervalRaw = item.interval?.toLowerCase()?.trim() || "";
+      const interval = intervalMap[intervalRaw];
+      const interval_count = intervalCountMap[intervalRaw] || 1;
 
       const lineItem = {
         quantity: item.quantity || 1,
         price_data: {
           currency: 'gbp',
           product_data: {
-            name: item.title,
+            name: item.title
           },
           unit_amount: Math.round(item.price * 100)
         }
       };
 
-      if (isSubscription && recurringInterval) {
+      if (isSubscription && interval) {
         lineItem.price_data.recurring = {
-          interval: recurringInterval,
-          interval_count: intervalCount
+          interval,
+          interval_count
         };
       }
 
@@ -62,13 +63,7 @@ export default async function handler(req, res) {
     }
 
     const hasSubscription = line_items.some(item => item.price_data.recurring);
-    const mode = hasSubscription ? "subscription" : "payment";
-
-    console.log("🧾 Stripe session config:", {
-      mode,
-      hasSubscription,
-      line_items
-    });
+    const mode = hasSubscription ? 'subscription' : 'payment';
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
