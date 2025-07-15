@@ -2,6 +2,20 @@ import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
+const intervalMap = {
+  "weekly": "week",
+  "every week": "week",
+  "monthly": "month",
+  "every month": "month",
+  "every 2 months": "month", // handled with interval_count = 2
+  "every 3 months": "month"
+};
+
+const intervalCountMap = {
+  "every 2 months": 2,
+  "every 3 months": 3
+};
+
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader("Access-Control-Allow-Origin", "https://www.moakits.com");
@@ -19,19 +33,51 @@ export default async function handler(req, res) {
   const { cart, email, name, address1, address2, city, postcode } = req.body;
 
   try {
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      mode: 'payment',
-      line_items: cart.map(item => ({
-        price_data: {
+    const line_items = [];
+
+    for (const item of cart) {
+      const isRepeat = item.purchaseType === "repeat";
+      const recurringInterval = intervalMap[item.dropdownSelection?.toLowerCase()?.trim() || ""] || null;
+      const intervalCount = intervalCountMap[item.dropdownSelection?.toLowerCase()?.trim() || ""] || 1;
+
+      const lineItem = {
+        quantity: item.quantity || 1
+      };
+
+      if (isRepeat && recurringInterval) {
+        // ✅ Subscription (recurring) item
+        lineItem.price_data = {
           currency: 'gbp',
           product_data: {
             name: item.title,
           },
           unit_amount: Math.round(item.price * 100),
-        },
-        quantity: 1,
-      })),
+          recurring: {
+            interval: recurringInterval,
+            interval_count: intervalCount
+          }
+        };
+      } else {
+        // 🛒 One-time item
+        lineItem.price_data = {
+          currency: 'gbp',
+          product_data: {
+            name: item.title,
+          },
+          unit_amount: Math.round(item.price * 100)
+        };
+      }
+
+      line_items.push(lineItem);
+    }
+
+    const hasSubscription = line_items.some(i => i.price_data.recurring);
+    const mode = hasSubscription ? 'subscription' : 'payment';
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode,
+      line_items,
       success_url: 'https://www.moakits.com/thank?success=true',
       cancel_url: 'https://www.moakits.com/checkout?cancel=true',
       customer_email: email,
