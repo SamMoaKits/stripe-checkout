@@ -7,7 +7,7 @@ const intervalMap = {
   "every week": "week",
   "monthly": "month",
   "every month": "month",
-  "every 2 months": "month", // handled with interval_count = 2
+  "every 2 months": "month", // will use interval_count = 2
   "every 3 months": "month"
 };
 
@@ -36,16 +36,17 @@ export default async function handler(req, res) {
     const line_items = [];
 
     for (const item of cart) {
-      const isRepeat = item.purchaseType === "repeat";
-      const recurringInterval = intervalMap[item.dropdownSelection?.toLowerCase()?.trim() || ""] || null;
-      const intervalCount = intervalCountMap[item.dropdownSelection?.toLowerCase()?.trim() || ""] || 1;
+      const isSubscription = item.subscription === true;
+      const rawInterval = item.interval?.toLowerCase()?.trim() || "";
+      const recurringInterval = intervalMap[rawInterval] || null;
+      const intervalCount = intervalCountMap[rawInterval] || 1;
 
       const lineItem = {
         quantity: item.quantity || 1
       };
 
-      if (isRepeat && recurringInterval) {
-        // ✅ Subscription (recurring) item
+      if (isSubscription && recurringInterval) {
+        // ✅ Subscription item
         lineItem.price_data = {
           currency: 'gbp',
           product_data: {
@@ -58,7 +59,7 @@ export default async function handler(req, res) {
           }
         };
       } else {
-        // 🛒 One-time item
+        // 🛒 One-time purchase
         lineItem.price_data = {
           currency: 'gbp',
           product_data: {
@@ -71,7 +72,7 @@ export default async function handler(req, res) {
       line_items.push(lineItem);
     }
 
-    const hasSubscription = line_items.some(i => i.price_data.recurring);
+    const hasSubscription = line_items.some(item => item.price_data.recurring);
     const mode = hasSubscription ? 'subscription' : 'payment';
 
     const session = await stripe.checkout.sessions.create({
