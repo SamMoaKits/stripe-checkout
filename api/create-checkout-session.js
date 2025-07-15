@@ -2,12 +2,13 @@ import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
+// Mapping from frontend label to Stripe-recognized values
 const intervalMap = {
   "weekly": "week",
   "every week": "week",
   "monthly": "month",
   "every month": "month",
-  "every 2 months": "month", // will use interval_count = 2
+  "every 2 months": "month",
   "every 3 months": "month"
 };
 
@@ -37,42 +38,32 @@ export default async function handler(req, res) {
 
     for (const item of cart) {
       const isSubscription = item.subscription === true;
-      const rawInterval = item.interval?.toLowerCase()?.trim() || "";
-      const recurringInterval = intervalMap[rawInterval] || null;
-      const intervalCount = intervalCountMap[rawInterval] || 1;
+      const intervalLabel = item.interval?.toLowerCase().trim() || "";
+      const recurringInterval = intervalMap[intervalLabel] || null;
+      const intervalCount = intervalCountMap[intervalLabel] || 1;
 
-      const lineItem = {
-        quantity: item.quantity || 1
+      const price_data = {
+        currency: 'gbp',
+        product_data: {
+          name: item.kitTitle || item.title || "Kit"
+        },
+        unit_amount: Math.round(item.price * 100)
       };
 
       if (isSubscription && recurringInterval) {
-        // ✅ Subscription item
-        lineItem.price_data = {
-          currency: 'gbp',
-          product_data: {
-            name: item.title,
-          },
-          unit_amount: Math.round(item.price * 100),
-          recurring: {
-            interval: recurringInterval,
-            interval_count: intervalCount
-          }
-        };
-      } else {
-        // 🛒 One-time purchase
-        lineItem.price_data = {
-          currency: 'gbp',
-          product_data: {
-            name: item.title,
-          },
-          unit_amount: Math.round(item.price * 100)
+        price_data.recurring = {
+          interval: recurringInterval,
+          interval_count: intervalCount
         };
       }
 
-      line_items.push(lineItem);
+      line_items.push({
+        price_data,
+        quantity: item.quantity || 1
+      });
     }
 
-    const hasSubscription = line_items.some(item => item.price_data.recurring);
+    const hasSubscription = line_items.some(li => li.price_data.recurring);
     const mode = hasSubscription ? 'subscription' : 'payment';
 
     const session = await stripe.checkout.sessions.create({
@@ -91,10 +82,11 @@ export default async function handler(req, res) {
       }
     });
 
+    console.log(`✅ Stripe session created [mode: ${mode}] → ${session.id}`);
     return res.status(200).json({ url: session.url });
 
   } catch (err) {
-    console.error('❌ Stripe error:', err);
+    console.error('❌ Stripe session creation error:', err);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
