@@ -7,7 +7,7 @@ const intervalMap = {
   "every week": "week",
   "monthly": "month",
   "every month": "month",
-  "every 2 months": "month",  // with interval_count = 2
+  "every 2 months": "month",
   "every 3 months": "month"
 };
 
@@ -37,33 +37,38 @@ export default async function handler(req, res) {
 
     for (const item of cart) {
       const isSubscription = item.subscription === true;
-      const intervalLabel = item.interval?.toLowerCase().trim() || "";
-      const recurringInterval = intervalMap[intervalLabel];
-      const intervalCount = intervalCountMap[intervalLabel] || 1;
+      const recurringInterval = intervalMap[item.interval?.toLowerCase()?.trim()] || null;
+      const intervalCount = intervalCountMap[item.interval?.toLowerCase()?.trim()] || 1;
 
-      const price_data = {
-        currency: 'gbp',
-        product_data: {
-          name: item.kitTitle || item.title || "Kit"
-        },
-        unit_amount: Math.round(item.price * 100)
+      const lineItem = {
+        quantity: item.quantity || 1,
+        price_data: {
+          currency: 'gbp',
+          product_data: {
+            name: item.title,
+          },
+          unit_amount: Math.round(item.price * 100)
+        }
       };
 
       if (isSubscription && recurringInterval) {
-        price_data.recurring = {
+        lineItem.price_data.recurring = {
           interval: recurringInterval,
           interval_count: intervalCount
         };
       }
 
-      line_items.push({
-        price_data,
-        quantity: item.quantity || 1
-      });
+      line_items.push(lineItem);
     }
 
-    const hasSubscription = line_items.some(i => i.price_data.recurring);
+    const hasSubscription = line_items.some(item => item.price_data.recurring);
     const mode = hasSubscription ? "subscription" : "payment";
+
+    console.log("🧾 Stripe session config:", {
+      mode,
+      hasSubscription,
+      line_items
+    });
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
