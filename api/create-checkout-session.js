@@ -2,13 +2,12 @@ import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Mapping from frontend label to Stripe-recognized values
 const intervalMap = {
   "weekly": "week",
   "every week": "week",
   "monthly": "month",
   "every month": "month",
-  "every 2 months": "month",
+  "every 2 months": "month", // uses interval_count = 2
   "every 3 months": "month"
 };
 
@@ -63,7 +62,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const hasSubscription = line_items.some(li => li.price_data.recurring);
+    const hasSubscription = line_items.some(i => i.price_data.recurring);
     const mode = hasSubscription ? 'subscription' : 'payment';
 
     const session = await stripe.checkout.sessions.create({
@@ -82,11 +81,10 @@ export default async function handler(req, res) {
       }
     });
 
-    console.log(`✅ Stripe session created [mode: ${mode}] → ${session.id}`);
     return res.status(200).json({ url: session.url });
 
   } catch (err) {
-    console.error('❌ Stripe session creation error:', err);
+    console.error('❌ Stripe error:', err);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
