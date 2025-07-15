@@ -7,7 +7,7 @@ const intervalMap = {
   "every week": "week",
   "monthly": "month",
   "every month": "month",
-  "every 2 months": "month", // uses interval_count = 2
+  "every 2 months": "month",  // with interval_count = 2
   "every 3 months": "month"
 };
 
@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     for (const item of cart) {
       const isSubscription = item.subscription === true;
       const intervalLabel = item.interval?.toLowerCase().trim() || "";
-      const recurringInterval = intervalMap[intervalLabel] || null;
+      const recurringInterval = intervalMap[intervalLabel];
       const intervalCount = intervalCountMap[intervalLabel] || 1;
 
       const price_data = {
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     }
 
     const hasSubscription = line_items.some(i => i.price_data.recurring);
-    const mode = hasSubscription ? 'subscription' : 'payment';
+    const mode = hasSubscription ? "subscription" : "payment";
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
