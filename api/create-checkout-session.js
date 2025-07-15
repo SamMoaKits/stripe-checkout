@@ -7,7 +7,7 @@ const intervalMap = {
   "every week": "week",
   "monthly": "month",
   "every month": "month",
-  "every 2 months": "month",
+  "every 2 months": "month", // handled with interval_count = 2
   "every 3 months": "month"
 };
 
@@ -36,34 +36,44 @@ export default async function handler(req, res) {
     const line_items = [];
 
     for (const item of cart) {
-      const isSubscription = item.subscription === true;
-      const intervalRaw = item.interval?.toLowerCase()?.trim() || "";
-      const interval = intervalMap[intervalRaw];
-      const interval_count = intervalCountMap[intervalRaw] || 1;
+      const isRepeat = item.purchaseType === "repeat";
+      const recurringInterval = intervalMap[item.dropdownSelection?.toLowerCase()?.trim() || ""] || null;
+      const intervalCount = intervalCountMap[item.dropdownSelection?.toLowerCase()?.trim() || ""] || 1;
 
       const lineItem = {
-        quantity: item.quantity || 1,
-        price_data: {
-          currency: 'gbp',
-          product_data: {
-            name: item.title
-          },
-          unit_amount: Math.round(item.price * 100)
-        }
+        quantity: item.quantity || 1
       };
 
-      if (isSubscription && interval) {
-        lineItem.price_data.recurring = {
-          interval,
-          interval_count
+      if (isRepeat && recurringInterval) {
+        lineItem.price_data = {
+          currency: 'gbp',
+          product_data: {
+            name: item.title,
+          },
+          unit_amount: Math.round(item.price * 100),
+          recurring: {
+            interval: recurringInterval,
+            interval_count: intervalCount
+          }
+        };
+      } else {
+        lineItem.price_data = {
+          currency: 'gbp',
+          product_data: {
+            name: item.title,
+          },
+          unit_amount: Math.round(item.price * 100)
         };
       }
 
       line_items.push(lineItem);
     }
 
-    const hasSubscription = line_items.some(item => item.price_data.recurring);
+    const hasSubscription = line_items.some(i => i.price_data.recurring);
     const mode = hasSubscription ? 'subscription' : 'payment';
+
+    console.log("🧾 Final Stripe mode:", mode);
+    console.log("📦 Final line_items:", JSON.stringify(line_items, null, 2));
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
